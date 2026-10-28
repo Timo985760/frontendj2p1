@@ -5,7 +5,7 @@ import { Link } from 'react-router-dom';
 import './Teams.css';
 
 function Teams() {
-  const { teams, addTeam, deleteTeam, removePokemonFromTeam } = useTeams();
+  const { teams, addTeam, deleteTeam, removePokemonFromTeam, renamePokemonInTeam } = useTeams();
   const [selectedTeamId, setSelectedTeamId] = useState(teams[0]?.id || '');
   const [newTeamName, setNewTeamName] = useState('');
   const [showNewModal, setShowNewModal] = useState(false);
@@ -101,11 +101,14 @@ function Teams() {
               <div className="slots-grid">
                 {[0, 1, 2, 3, 4, 5].map((index) => (
                   <TeamSlot
-                    key={index}
+                    key={`${activeTeam.id}-${index}`}
                     slotIndex={index}
                     member={activeTeam.members[index]}
                     onRemove={(pokemonName) =>
                       removePokemonFromTeam(activeTeam.id, pokemonName)
+                    }
+                    onRename={(pokemonName, nickname, slotIdx) =>
+                      renamePokemonInTeam(activeTeam.id, pokemonName, nickname, slotIdx)
                     }
                   />
                 ))}

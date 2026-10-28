@@ -2,49 +2,30 @@ import { createContext, useContext, useState, useEffect } from 'react';
 
 const TeamContext = createContext();
 
-const DEFAULT_TEAMS = [
-  {
-    id: 'team-1',
-    name: 'Alpha Squad',
-    members: [
-      { id: 25, name: 'pikachu', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/25.png', types: ['electric'] },
-      { id: 6, name: 'charizard', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/6.png', types: ['fire', 'flying'] },
-      { id: 9, name: 'blastoise', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/9.png', types: ['water'] },
-      { id: 3, name: 'venusaur', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/3.png', types: ['grass', 'poison'] }
-    ]
-  },
-  {
-    id: 'team-2',
-    name: 'Beta Force',
-    members: [
-      { id: 130, name: 'gyarados', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/130.png', types: ['water', 'flying'] },
-      { id: 143, name: 'snorlax', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/143.png', types: ['normal'] }
-    ]
-  },
-  {
-    id: 'team-3',
-    name: 'Gamma Unit',
-    members: [
-      { id: 94, name: 'gengar', image: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/94.png', types: ['ghost', 'poison'] }
-    ]
-  }
+const INITIAL_TEAM_CONFIG = [
+  { id: 'team-1', name: 'Alpha Squad', pokemonNames: ['pikachu', 'charizard', 'blastoise', 'venusaur'] },
+  { id: 'team-2', name: 'Beta Force', pokemonNames: ['gyarados', 'snorlax'] },
+  { id: 'team-3', name: 'Gamma Unit', pokemonNames: ['gengar'] }
 ];
 
 export function TeamProvider({ children }) {
   const [teams, setTeams] = useState(() => {
-    const saved = localStorage.getItem('pokecorp_teams');
+    const saved = localStorage.getItem('pokemon_teams_v2');
     if (saved) {
       try {
-        return JSON.parse(saved);
+        const parsed = JSON.parse(saved);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed;
+        }
       } catch (e) {
         console.error('Error loading teams from localStorage', e);
       }
     }
-    return DEFAULT_TEAMS;
+    return [];
   });
 
   const [favorites, setFavorites] = useState(() => {
-    const saved = localStorage.getItem('pokecorp_favorites');
+    const saved = localStorage.getItem('pokemon_favorites_v2');
     if (saved) {
       try {
         return JSON.parse(saved);
@@ -56,12 +37,69 @@ export function TeamProvider({ children }) {
   });
 
   useEffect(() => {
-    localStorage.setItem('pokecorp_teams', JSON.stringify(teams));
+    if (teams.length > 0) return;
+    let isMounted = true;
+
+    async function fetchInitialTeams() {
+      try {
+        const loadedTeams = await Promise.all(
+          INITIAL_TEAM_CONFIG.map(async (teamCfg) => {
+            const members = await Promise.all(
+              teamCfg.pokemonNames.map(async (pokeName) => {
+                const res = await fetch(`https://pokeapi.co/api/v2/pokemon/${pokeName}`);
+                const data = await res.json();
+                return {
+                  id: data.id,
+                  name: data.name,
+                  nickname: '',
+                  image: data.sprites?.front_default,
+                  types: data.types.map((t) => t.type.name)
+                };
+              })
+            );
+            return {
+              id: teamCfg.id,
+              name: teamCfg.name,
+              members
+            };
+          })
+        );
+        if (isMounted) {
+          setTeams(loadedTeams);
+          localStorage.setItem('pokemon_teams_v2', JSON.stringify(loadedTeams));
+        }
+      } catch (err) {
+        console.error('Error fetching initial teams from API:', err);
+      }
+    }
+
+    fetchInitialTeams();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    if (teams.length > 0) {
+      localStorage.setItem('pokemon_teams_v2', JSON.stringify(teams));
+    }
   }, [teams]);
 
   useEffect(() => {
-    localStorage.setItem('pokecorp_favorites', JSON.stringify(favorites));
+    localStorage.setItem('pokemon_favorites_v2', JSON.stringify(favorites));
   }, [favorites]);
+
+  const updateTeamsAndSave = (updater) => {
+    setTeams((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      try {
+        localStorage.setItem('pokemon_teams_v2', JSON.stringify(next));
+      } catch (e) {
+        console.error('Error saving teams to localStorage', e);
+      }
+      return next;
+    });
+  };
 
   const addTeam = (name) => {
     if (!name.trim()) return;
@@ -70,15 +108,15 @@ export function TeamProvider({ children }) {
       name: name.trim(),
       members: []
     };
-    setTeams((prev) => [...prev, newTeam]);
+    updateTeamsAndSave((prev) => [...prev, newTeam]);
   };
 
   const deleteTeam = (teamId) => {
-    setTeams((prev) => prev.filter((t) => t.id !== teamId));
+    updateTeamsAndSave((prev) => prev.filter((t) => t.id !== teamId));
   };
 
   const addPokemonToTeam = (teamId, pokemon) => {
-    setTeams((prev) =>
+    updateTeamsAndSave((prev) =>
       prev.map((team) => {
         if (team.id !== teamId) return team;
         if (team.members.length >= 6) {
@@ -96,6 +134,7 @@ export function TeamProvider({ children }) {
             {
               id: pokemon.id,
               name: pokemon.name,
+              nickname: pokemon.nickname || '',
               image: pokemon.image || pokemon.sprites?.front_default,
               types: pokemon.types ? (typeof pokemon.types[0] === 'string' ? pokemon.types : pokemon.types.map(t => t.type?.name || t)) : []
             }
@@ -105,8 +144,36 @@ export function TeamProvider({ children }) {
     );
   };
 
+  const renamePokemonInTeam = (teamId, pokemonName, nickname, slotIndex = null) => {
+    updateTeamsAndSave((prev) =>
+      prev.map((team) => {
+        if (team.id !== teamId) return team;
+        return {
+          ...team,
+          members: team.members.map((m, idx) => {
+            if (slotIndex !== null ? idx === slotIndex : m.name === pokemonName) {
+              return { ...m, nickname: nickname.trim() };
+            }
+            return m;
+          })
+        };
+      })
+    );
+  };
+
+  const getPokemonNickname = (pokemonName) => {
+    if (!pokemonName) return '';
+    for (const team of teams) {
+      const found = team.members.find(
+        (m) => m.name.toLowerCase() === pokemonName.toLowerCase() && m.nickname
+      );
+      if (found) return found.nickname;
+    }
+    return '';
+  };
+
   const removePokemonFromTeam = (teamId, pokemonName) => {
-    setTeams((prev) =>
+    updateTeamsAndSave((prev) =>
       prev.map((team) => {
         if (team.id !== teamId) return team;
         return {
@@ -135,6 +202,8 @@ export function TeamProvider({ children }) {
         addTeam,
         deleteTeam,
         addPokemonToTeam,
+        renamePokemonInTeam,
+        getPokemonNickname,
         removePokemonFromTeam,
         toggleFavorite,
         isFavorite

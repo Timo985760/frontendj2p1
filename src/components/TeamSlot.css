@@ -79,14 +79,12 @@
   border-color: #fca5a5;
 }
 
-.slot-link {
+.slot-content {
   display: flex;
   width: 100%;
   align-items: center;
   padding: 12px;
   gap: 12px;
-  text-decoration: none;
-  color: inherit;
 }
 
 .slot-image-wrap {
@@ -98,6 +96,7 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  text-decoration: none;
 }
 
 .slot-sprite {
@@ -111,6 +110,8 @@
   display: flex;
   flex-direction: column;
   gap: 4px;
+  flex: 1;
+  min-width: 0;
 }
 
 .slot-number {
@@ -119,12 +120,94 @@
   color: #94a3b8;
 }
 
+.slot-name-row {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 2px;
+}
+
+.slot-name-link {
+  text-decoration: none;
+  color: inherit;
+  display: flex;
+  align-items: baseline;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
 .slot-name {
   font-size: 1rem;
   font-weight: 700;
   text-transform: capitalize;
   color: #1e293b;
   margin: 0;
+}
+
+.slot-species {
+  font-size: 0.75rem;
+  color: #64748b;
+  text-transform: capitalize;
+}
+
+.btn-slot-rename {
+  background: none;
+  border: none;
+  padding: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  color: #ef4444;
+  cursor: pointer;
+}
+
+.btn-slot-rename:hover {
+  text-decoration: underline;
+}
+
+.slot-rename-form {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.slot-rename-input {
+  width: 100%;
+  padding: 4px 8px;
+  font-size: 0.82rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 4px;
+  outline: none;
+}
+
+.slot-rename-input:focus {
+  border-color: #ef4444;
+}
+
+.slot-rename-actions {
+  display: flex;
+  gap: 6px;
+}
+
+.btn-rename-save {
+  background: #ef4444;
+  color: #ffffff;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 700;
+  cursor: pointer;
+}
+
+.btn-rename-cancel {
+  background: #f1f5f9;
+  color: #475569;
+  border: none;
+  border-radius: 4px;
+  padding: 2px 8px;
+  font-size: 0.72rem;
+  font-weight: 600;
+  cursor: pointer;
 }
 
 .slot-types {

@@ -91,7 +91,7 @@ function Dashboard() {
                         <span
                           key={slotIdx}
                           className={`slot-dot ${member ? 'filled' : 'empty'}`}
-                          title={member ? `${member.name} (${member.types?.join(', ')})` : `Slot ${slotIdx + 1}: Leeg`}
+                          title={member ? `${member.nickname ? `${member.nickname} (${member.name})` : member.name} (${member.types?.join(', ')})` : `Slot ${slotIdx + 1}: Leeg`}
                         ></span>
                       );
                     })}
