@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
 import PokemonCard from '../components/PokemonCard';
+import { useTeams } from '../context/TeamContext';
 import './Pokedex.css';
 
 function Pokedex() {
+  const { getPokemonNickname } = useTeams();
+  const [allPokemonRefs, setAllPokemonRefs] = useState([]);
   const [pokemons, setPokemons] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [offset, setOffset] = useState(0);
+  const [visibleCount, setVisibleCount] = useState(36);
   const [search, setSearch] = useState('');
   const [selectedType, setSelectedType] = useState('all');
-  const limit = 24;
+  const maxGen7Limit = 809;
 
   const POKEMON_TYPES = [
     'all', 'normal', 'fire', 'water', 'grass', 'electric',
@@ -20,63 +23,77 @@ function Pokedex() {
     let isMounted = true;
     setLoading(true);
 
-    fetch(`https://pokeapi.co/api/v2/pokemon?limit=${limit}&offset=${offset}`)
+    fetch(`https://pokeapi.co/api/v2/pokemon?limit=${maxGen7Limit}&offset=0`)
       .then((res) => res.json())
-      .then(async (data) => {
+      .then((data) => {
         if (!isMounted) return;
-
-        const detailedList = await Promise.all(
-          data.results.map(async (p) => {
-            try {
-              const res = await fetch(p.url);
-              const details = await res.json();
-              return {
-                id: details.id,
-                name: details.name,
-                image: details.sprites?.front_default,
-                types: details.types.map((t) => t.type.name)
-              };
-            } catch {
-              const parts = p.url.split('/').filter(Boolean);
-              const id = parts[parts.length - 1];
-              return {
-                id: Number(id),
-                name: p.name,
-                image: `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id}.png`,
-                types: []
-              };
-            }
-          })
-        );
-
-        if (isMounted) {
-          if (offset === 0) {
-            setPokemons(detailedList);
-          } else {
-            setPokemons((prev) => [...prev, ...detailedList]);
-          }
-          setLoading(false);
-        }
+        setAllPokemonRefs(data.results || []);
       })
       .catch((err) => {
-        console.error('Error fetching pokemons:', err);
+        console.error('Error fetching pokemon list:', err);
         if (isMounted) setLoading(false);
       });
 
     return () => {
       isMounted = false;
     };
-  }, [offset]);
+  }, []);
+
+  useEffect(() => {
+    if (allPokemonRefs.length === 0) return;
+    let isMounted = true;
+
+    const query = search.trim().toLowerCase();
+    const matchingRefs = query
+      ? allPokemonRefs.filter((p) => {
+          const nick = getPokemonNickname ? getPokemonNickname(p.name) : '';
+          return (
+            p.name.toLowerCase().includes(query) ||
+            nick.toLowerCase().includes(query)
+          );
+        })
+      : allPokemonRefs;
+
+    const sliceToLoad =
+      selectedType === 'all'
+        ? matchingRefs.slice(0, visibleCount)
+        : matchingRefs.slice(0, Math.min(matchingRefs.length, 151));
+
+    setLoading(true);
+    Promise.all(
+      sliceToLoad.map(async (p) => {
+        try {
+          const res = await fetch(p.url);
+          const details = await res.json();
+          return {
+            id: details.id,
+            name: details.name,
+            image: details.sprites?.front_default,
+            types: details.types.map((t) => t.type.name)
+          };
+        } catch {
+          return null;
+        }
+      })
+    ).then((results) => {
+      if (!isMounted) return;
+      setPokemons(results.filter(Boolean));
+      setLoading(false);
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, [allPokemonRefs, visibleCount, search, selectedType]);
 
   const handleLoadMore = () => {
-    setOffset((prev) => prev + limit);
+    setVisibleCount((prev) => Math.min(maxGen7Limit, prev + 36));
   };
 
   const filteredPokemons = pokemons.filter((p) => {
-    const matchesSearch = p.name.toLowerCase().includes(search.toLowerCase());
     const matchesType =
       selectedType === 'all' || (p.types && p.types.includes(selectedType));
-    return matchesSearch && matchesType;
+    return matchesType;
   });
 
   return (
@@ -85,7 +102,7 @@ function Pokedex() {
         <div>
           <h1 className="page-heading">Pokédex</h1>
           <p className="page-subheading">
-            Selecteer kandidaten voor je corporate teams of bekijk hun individuele prestatiedossier.
+            Bekijk alle Pokémon, filter op type of voeg ze toe aan je team.
           </p>
         </div>
       </div>
@@ -149,7 +166,7 @@ function Pokedex() {
         </div>
       )}
 
-      {!loading && (
+      {!loading && visibleCount < maxGen7Limit && !search && selectedType === 'all' && (
         <div className="load-more-wrap">
           <button type="button" onClick={handleLoadMore} className="btn-load-more">
             LOAD MORE POKÉMON

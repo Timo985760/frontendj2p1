@@ -6,9 +6,10 @@ import './PokemonDetail.css';
 function PokemonDetail() {
   const { name } = useParams();
   const [pokemon, setPokemon] = useState(null);
+  const [speciesInfo, setSpeciesInfo] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-  const { teams, addPokemonToTeam, toggleFavorite, isFavorite } = useTeams();
+  const { teams, addPokemonToTeam, toggleFavorite, isFavorite, getPokemonNickname } = useTeams();
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [message, setMessage] = useState('');
 
@@ -20,6 +21,16 @@ function PokemonDetail() {
         if (!res.ok) throw new Error('Pokémon niet gevonden');
         const data = await res.json();
         setPokemon(data);
+
+        try {
+          const speciesRes = await fetch(data.species.url);
+          if (speciesRes.ok) {
+            const speciesData = await speciesRes.json();
+            setSpeciesInfo(speciesData);
+          }
+        } catch {
+          setSpeciesInfo(null);
+        }
       } catch (err) {
         setError(err.message);
       } finally {
@@ -49,6 +60,22 @@ function PokemonDetail() {
   }
 
   const isFav = isFavorite(pokemon.name);
+  const nickname = getPokemonNickname ? getPokemonNickname(pokemon.name) : '';
+
+  const descriptionEntry = speciesInfo?.flavor_text_entries?.find(
+    (entry) => entry.language.name === 'en'
+  );
+  const description = descriptionEntry
+    ? descriptionEntry.flavor_text.replace(/[\n\f\r]/g, ' ')
+    : '';
+
+  const genusEntry = speciesInfo?.genera?.find(
+    (g) => g.language.name === 'en'
+  );
+  const category = genusEntry ? genusEntry.genus : '';
+  const generation = speciesInfo?.generation?.name
+    ? speciesInfo.generation.name.replace('generation-', 'Gen ').toUpperCase()
+    : '';
 
   const handleAddToTeam = () => {
     const targetTeamId = selectedTeamId || (teams[0] && teams[0].id);
@@ -76,14 +103,14 @@ function PokemonDetail() {
 
       <div className="detail corporate-dossier">
         <div className="dossier-header">
-          <div className="dossier-badge">POKECORP PERSONNEL FILE #{pokemon.id}</div>
+          <div className="dossier-badge">POKÉDEX #{pokemon.id}</div>
           <div className="header-actions">
             <button
               type="button"
               className={`fav-button-large ${isFav ? 'active' : ''}`}
               onClick={() => toggleFavorite(pokemon.name)}
             >
-              {isFav ? '★ Favoriete Werknemer' : '☆ Toevoegen aan Favorieten'}
+              {isFav ? '★ Favoriet' : '☆ Toevoegen aan Favorieten'}
             </button>
           </div>
         </div>
@@ -97,10 +124,10 @@ function PokemonDetail() {
                 className="main-artwork"
               />
             </div>
-            <h2 className="pokemon-title">{pokemon.name}</h2>
-            <p className="pokemon-species-type">
-              Type: {pokemon.types.map((t) => t.type.name).join(', ')}
-            </p>
+            <h2 className="pokemon-title">
+              {nickname ? `${nickname} (${pokemon.name})` : pokemon.name}
+            </h2>
+            {category && <p className="pokemon-species-type">{category}</p>}
             <div className="type-pill-row">
               {pokemon.types.map((t) => (
                 <span key={t.type.name} className={`type-badge type-${t.type.name}`}>
@@ -110,7 +137,7 @@ function PokemonDetail() {
             </div>
 
             <div className="assign-team-box">
-              <label>Plaats in team (Deploy to Unit):</label>
+              <label>Voeg toe aan team:</label>
               <div className="assign-controls">
                 <select
                   value={selectedTeamId}
@@ -123,7 +150,7 @@ function PokemonDetail() {
                   ))}
                 </select>
                 <button type="button" onClick={handleAddToTeam} className="btn-assign">
-                  Inzetten
+                  Toevoegen
                 </button>
               </div>
               {message && <div className="success-banner">{message}</div>}
@@ -131,8 +158,14 @@ function PokemonDetail() {
           </div>
 
           <div className="dossier-stats">
-            <h3 className="section-title">HR Evaluatie & Specificaties</h3>
-            
+            {description && (
+              <>
+                <h3 className="section-title">Pokédex Beschrijving</h3>
+                <p className="pokemon-description">{description}</p>
+              </>
+            )}
+
+            <h3 className="section-title">Pokémon Info</h3>
             <div className="specs-table">
               <div className="spec-row">
                 <span className="spec-name">Lengte (Height)</span>
@@ -143,26 +176,26 @@ function PokemonDetail() {
                 <span className="spec-val">{(pokemon.weight / 10).toFixed(1)} kg</span>
               </div>
               <div className="spec-row">
-                <span className="spec-name">Basis Ervaring</span>
+                <span className="spec-name">Basis XP</span>
                 <span className="spec-val">{pokemon.base_experience || 'N/A'} XP</span>
               </div>
               <div className="spec-row">
-                <span className="spec-name">Inzetbaarheid</span>
-                <span className="spec-val text-success">Direct beschikbaar</span>
+                <span className="spec-name">Generatie</span>
+                <span className="spec-val">{generation || `#${pokemon.id}`}</span>
               </div>
             </div>
 
-            <h3 className="section-title">Vaardigheden (Abilities)</h3>
+            <h3 className="section-title">Abilities</h3>
             <div className="abilities-list">
               {pokemon.abilities.map((a) => (
                 <span key={a.ability.name} className="ability-tag">
                   {a.ability.name.replace('-', ' ')}
-                  {a.is_hidden && <small> (verborgen)</small>}
+                  {a.is_hidden && <small> (hidden)</small>}
                 </span>
               ))}
             </div>
 
-            <h3 className="section-title">Prestatie-indicatoren (Base Stats)</h3>
+            <h3 className="section-title">Base Stats</h3>
             <div className="stats-bars">
               {pokemon.stats.map((s) => {
                 const percentage = Math.min(100, Math.round((s.base_stat / 200) * 100));

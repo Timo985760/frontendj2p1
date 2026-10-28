@@ -4,11 +4,12 @@ import { useState } from 'react';
 import './PokemonCard.css';
 
 function PokemonCard({ name, image, types = [], id }) {
-  const { teams, addPokemonToTeam, toggleFavorite, isFavorite } = useTeams();
+  const { teams, addPokemonToTeam, toggleFavorite, isFavorite, getPokemonNickname } = useTeams();
   const [selectedTeamId, setSelectedTeamId] = useState('');
   const [justAdded, setJustAdded] = useState(false);
 
   const isFav = isFavorite(name);
+  const nickname = getPokemonNickname ? getPokemonNickname(name) : '';
 
   const handleAddToTeam = (e) => {
     e.preventDefault();
@@ -44,13 +45,15 @@ function PokemonCard({ name, image, types = [], id }) {
       <Link to={`/pokemon/${name}`} className="card-link">
         <div className="card-image-wrap">
           <img
-            src={image || `https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/${id || 1}.png`}
+            src={image}
             alt={name}
             className="pokemon-sprite"
             loading="lazy"
           />
         </div>
-        <h3 className="pokemon-name">{name}</h3>
+        <h3 className="pokemon-name">
+          {nickname ? `${nickname} (${name})` : name}
+        </h3>
       </Link>
 
       {types && types.length > 0 && (

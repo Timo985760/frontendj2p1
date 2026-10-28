@@ -211,6 +211,17 @@
   margin: 0;
 }
 
+.pokemon-description {
+  background: #f8fafc;
+  border: 1px solid #e2e8f0;
+  border-radius: 8px;
+  padding: 12px 14px;
+  font-size: 0.92rem;
+  color: #334155;
+  line-height: 1.6;
+  margin: 0;
+}
+
 .specs-table {
   display: grid;
   grid-template-columns: 1fr 1fr;
